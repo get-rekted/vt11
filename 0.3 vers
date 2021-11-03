@@ -1,0 +1,189 @@
+import telebot
+from telebot import types
+import sqlite3
+from telegram import Update
+from telegram.ext import Updater
+from telegram.ext import CallbackContext
+from telegram.ext import Filters
+from telegram.ext import MessageHandler
+from telegram import KeyboardButton
+from telegram import ReplyKeyboardMarkup
+from telegram import ReplyKeyboardRemove
+from pycoingecko import CoinGeckoAPI
+from py_currency_converter import convert
+
+bot = telebot.TeleBot('2097539370:AAHQP8RIzmTLm-WH1ACG1EMTUwMai1IvgOE')
+
+
+
+@bot.message_handler(commands=['start'])
+def start_bot(message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    button1 = types.KeyboardButton('Crypto 📈')
+    button2 = types.KeyboardButton('USD to 📊')
+    button3 = types.KeyboardButton('FAQ 📌')
+    button4 = types.KeyboardButton('Feedback 🔥')
+    markup.add(button4, button1, button2, button3)
+    bot.send_message(message.chat.id, 'Привет, {0.first_name}. '
+                                      'Я рад тебя видеть! :)\n'
+                                      '\nЧто хочешь узнать?\n\n<b>Список команд:</b>\n \nCrypto — узнать актуальный курс 10 самых популярных криптовалют в ' \
+                                      'мире\nUSD to — узнать курс доллара по отношению к RUB, EUR, UAH\nFAQ — ответы на вопросы\nFeedback — написать ' \
+                                      'сообщение создателю бота' .format(message.from_user), reply_markup=markup, parse_mode='HTML')
+    # создаем БД
+    connect = sqlite3.connect('users.db')
+    cursor = connect.cursor()
+    cursor.execute("""CREATE TABLE IF NOT EXISTS login_id(
+        id INTEGER
+    )""")
+    connect.commit()
+
+    # проверка id на повтор
+    people_id = message.chat.id
+    cursor.execute(f"SELECT id FROM login_id WHERE id = {people_id}")
+    data = cursor.fetchone()
+    print(data)
+    if data is None:
+        # добавляем значение
+        user_id = [message.chat.id]
+        cursor.execute("INSERT INTO login_id VALUES(?);", user_id)
+        connect.commit()
+
+# @bot.message_handler(commands=['start'])
+# def stbot(message):
+#     bot.send_message(message.chat.id, 'privet')
+
+# Команда для удаления юзера из БД
+@bot.message_handler(commands=['delete_me_from_db'])
+def delete(message):
+    connect = sqlite3.connect('users.db')
+    cursor = connect.cursor()
+
+    # удаление из БД
+    people_id = message.chat.id
+    cursor.execute(f"DELETE FROM login_id WHERE id = {people_id}")
+    connect.commit()
+    print('Удалил юзера из БД')
+
+@bot.message_handler(commands=['help'])
+def hlbot(message):
+    bot.send_message(message.chat.id, 'Тех. поддержка - @durov')
+
+
+
+cg = CoinGeckoAPI()
+# view = "Crypto 📈"
+# usd = 'USD to 📊'
+# faq = 'FAQ 📌'
+# feedback = 'Feedback 🔥'
+
+
+
+# Кнопка просмотра курса криптовалют
+
+# CRYPTO COURSE
+price = cg.get_price(ids='bitcoin,litecoin,ethereum,terra-luna,solana,ripple,polkadot,dogecoin,chainlink',
+                     vs_currencies='usd')
+crypto = f"Bitcoin (BTC) — {price['bitcoin']['usd']:.2f}$" \
+         + f"\nLitecoin (LTC) — {price['litecoin']['usd']:.2f}$" \
+         + f"\nEthereum (ETH) — {price['ethereum']['usd']:.2f}$"\
+         + f"\nTerra (LUNA) — {price['terra-luna']['usd']:.2f}$"\
+         + f"\nSolana (SOL) — {price['solana']['usd']:.2f}$"\
+         + f"\nXRP (XRP) — {price['ripple']['usd']:.2f}$"\
+         + f"\nPolkadot (DOT) — {price['polkadot']['usd']:.2f}$"\
+         + f"\nDogecoin (DOGE) — {price['dogecoin']['usd']:.2f}$"\
+         + f"\nChainlink (LINK) — {price['chainlink']['usd']:.2f}$"\
+        # + f"\nAave (AAVE) — {price['aave']['usd']:.2f}$"
+
+
+course = convert(amount=1, to=['RUB', 'EUR', 'UAH'])
+usd =f"1 USD = {course['RUB']} RUB"\
+     + f"\n1 USD = {course['EUR']} EUR"\
+     + f"\n1 USD = {course['UAH']} UAH"
+
+# News
+
+
+
+
+
+
+
+
+@bot.message_handler(content_types=['text'])
+def send_message_handler(message):
+    if message.chat.type == 'private':
+
+        #CRYPTO
+        if message.text == "Crypto 📈":
+            bot.send_message(message.chat.id, crypto)
+
+        #USD
+        elif message.text == 'USD to 📊':
+            bot.send_message(message.chat.id, usd)
+
+        #FAQ
+        elif message.text == 'FAQ 📌':
+            bot.send_message(message.chat.id, '<b>Ответы на вопросы:</b>\n\n 1) С какого сайта бот берет цены? - С сайта CoinGecko.\n\n 2) Почему CoinGecko? - '
+             'Ежеминутное обновление курса монет и наличие API.\n\n 3) Как пришла идея о создании данного бота? - '
+             'Спонтанно.', parse_mode='HTML')
+
+        #FEEDBACK
+        elif message.text == 'Feedback 🔥':
+            bot.send_message(message.chat.id, '<b>Создатель бота</b> - Get Rekted \n\n VK - @durov\n\n TG - @durov',
+        parse_mode='HTML')
+
+        else:
+            bot.send_message(message.chat.id, 'Такой команды не существует. Напишите — /start — чтобы узнать список существующих команд.')
+
+
+
+    # if message.chat.type == 'private':
+    #     # text = update.message.text
+    #     if message.text == view:
+    #         button_view_handler()
+    #         return button_view_handler(update=update, context=context)
+    #     elif message.text == usd:
+    #         return button_usd_handler(update=update, context=context)
+    #     elif message.text == faq:
+    #         return button_faq_handler(update=update, context=context)
+    #     elif message.text == feedback:
+    #         return button_feedback_handler(update=update, context=context)
+    #     reply_markup = ReplyKeyboardMarkup(
+    #         keyboard=[
+    #             [
+    #                 KeyboardButton(text=view),
+    #                 KeyboardButton(text=usd),
+    #                 KeyboardButton(text=faq),
+    #                 KeyboardButton(text=feedback)
+    #             ],
+    #         ],
+    #         resize_keyboard=True,
+    #     )
+@bot.message_handler(content_types=[''])
+def answer(message):
+    bot.send_message(message.chat.id, '1')
+        # update.message.reply_text(
+        #     text='Привет! Что хочешь узнать?\n\n<b>Список команд:</b>\n \nCrypto — узнать актуальный курс 10 самых популярных '
+        #          'криптовалют в мире\nUSD to — узнать курс доллара по отношению к RUB, EUR, UAH\nFAQ — ответы на '
+        #          'вопросы\nFeedback — написать сообщение создателю бота', parse_mode='HTML'
+        #     # reply_markup=reply_markup,
+        # )
+
+
+# Начало
+# def main():
+#     print('Статус бота — online!')
+#     updater = Updater(
+#         token='2083304857:AAGPdusBhGpRgIeO90ReNK8CQ2u-wrEkrWQ',
+#         use_context=True,
+#     )
+#     updater.dispatcher.add_handler(MessageHandler(filters=Filters.all, callback=message_handler))
+#     updater.start_polling()
+#     updater.idle()
+
+
+# if __name__ == '__main__':
+#     main()
+
+print('Бот вышел в online!')
+bot.polling()
